@@ -1,0 +1,53 @@
+const { NotFoundError } = require("../../errors/AppError");
+
+function createRoomsService({ runInTransaction }) {
+  async function listRooms() {
+    return runInTransaction(({ rooms }) => rooms.findAll());
+  }
+
+  async function getRoom(id) {
+    return runInTransaction(async ({ rooms }) => {
+      const room = await rooms.findById(id);
+
+      if (!room) throw new NotFoundError("Room");
+
+      return room;
+    });
+  }
+
+  // Duplikat nazwy sali w budynku zgłasza baza (UNIQUE) - error handler zamienia go na 409
+  async function createRoom(input) {
+    return runInTransaction(async ({ buildings, rooms }) => {
+      const building = await buildings.findById(input.buildingId);
+
+      if (!building) throw new NotFoundError("Building");
+
+      return rooms.create(input);
+    });
+  }
+
+  async function updateRoom(id, changes) {
+    return runInTransaction(async ({ rooms }) => {
+      const room = await rooms.findById(id);
+
+      if (!room) throw new NotFoundError("Room");
+
+      return rooms.update(id, changes);
+    });
+  }
+
+  // Sali z rezerwacjami (także anulowanymi) nie da się usunąć - FK ON DELETE RESTRICT -> 409
+  async function deleteRoom(id) {
+    return runInTransaction(async ({ rooms }) => {
+      const room = await rooms.findById(id);
+
+      if (!room) throw new NotFoundError("Room");
+
+      await rooms.delete(id);
+    });
+  }
+
+  return { listRooms, getRoom, createRoom, updateRoom, deleteRoom };
+}
+
+module.exports = { createRoomsService };

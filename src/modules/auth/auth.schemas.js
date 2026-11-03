@@ -1,0 +1,16 @@
+const { z } = require("zod");
+
+// .strict(): pole role (albo inne nieznane) -> 400, zamiast po cichu je pominąć
+const registerBody = z.object({
+  email: z.email().toLowerCase(),
+  password: z.string()
+    .min(10, "Password must have at least 10 characters")
+    .max(72, "Password can have at most 72 characters")
+}).strict();
+
+const loginBody = z.object({
+  email: z.email().toLowerCase(),
+  password: z.string().min(1)
+}).strict();
+
+module.exports = { registerBody, loginBody };

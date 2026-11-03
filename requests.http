@@ -1,0 +1,212 @@
+@baseUrl = http://localhost:3000/api
+
+### ---------- Zadanie 1: rejestracja ----------
+
+### Rejestracja (201, email zapisany małymi literami, rola USER)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "Ewa.Mazur@Example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### Próba nadania sobie roli ADMIN -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "haker@example.com",
+  "password": "bardzo-dlugie-haslo",
+  "role": "ADMIN"
+}
+
+### Za krótkie hasło -> 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "krotkie@example.com",
+  "password": "krotkie"
+}
+
+### Duplikat emaila różniący się wielkością liter -> 409 EMAIL_TAKEN
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "EWA.MAZUR@example.com",
+  "password": "bardzo-dlugie-haslo"
+}
+
+### ---------- Zadanie 2: logowanie ----------
+
+# @name loginJan
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "user-password-123"
+}
+
+###
+# @name loginAnna
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "anna.nowak@example.com",
+  "password": "user-password-123"
+}
+
+###
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "admin-password-123"
+}
+
+###
+@jan = {{loginJan.response.body.accessToken}}
+@anna = {{loginAnna.response.body.accessToken}}
+@admin = {{loginAdmin.response.body.accessToken}}
+
+### Zły email -> 401 (ta sama odpowiedź co przy złym haśle)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nie-ma-takiego@example.com",
+  "password": "user-password-123"
+}
+
+### Złe hasło -> 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan.kowalski@example.com",
+  "password": "zle-haslo-123"
+}
+
+### Zalogowany użytkownik
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{jan}}
+
+### ---------- Zadanie 3: authenticate ----------
+
+### Brak nagłówka -> 401
+GET {{baseUrl}}/rooms
+
+### Zły format nagłówka -> 401
+GET {{baseUrl}}/rooms
+Authorization: Basic YWRtaW46YWRtaW4=
+
+### Bearer bez tokenu -> 401
+GET {{baseUrl}}/rooms
+Authorization: Bearer
+
+### Zły podpis (zmieniony ostatni znak) -> 401
+GET {{baseUrl}}/rooms
+Authorization: Bearer {{jan}}x
+
+### Rezerwacja - userId z tokenu, w odpowiedzi user: { id, email }
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{jan}}
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "participants": 20,
+  "startTime": "2026-12-15T10:00:00Z",
+  "endTime": "2026-12-15T12:00:00Z"
+}
+
+### userId w body -> 400
+POST {{baseUrl}}/reservations
+Authorization: Bearer {{jan}}
+Content-Type: application/json
+
+{
+  "roomId": 3,
+  "participants": 20,
+  "startTime": "2026-12-16T10:00:00Z",
+  "endTime": "2026-12-16T12:00:00Z",
+  "userId": 1
+}
+
+### ---------- Zadanie 4: role i ownership ----------
+
+### USER widzi tylko swoje rezerwacje
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{anna}}
+
+### Filtr userId tylko dla ADMIN-a -> 403
+GET {{baseUrl}}/reservations?userId=3
+Authorization: Bearer {{anna}}
+
+### ADMIN widzi wszystkie, może filtrować po userId
+GET {{baseUrl}}/reservations?userId=3&sort=-startTime
+Authorization: Bearer {{admin}}
+
+### Cudza rezerwacja -> 404
+GET {{baseUrl}}/reservations/2
+Authorization: Bearer {{anna}}
+
+### Własna rezerwacja
+GET {{baseUrl}}/reservations/2
+Authorization: Bearer {{jan}}
+
+### Anulowanie cudzej rezerwacji -> 404
+PATCH {{baseUrl}}/reservations/2/cancel
+Authorization: Bearer {{anna}}
+
+### Anulowanie rozpoczętej rezerwacji przez ADMIN-a -> 409
+PATCH {{baseUrl}}/reservations/1/cancel
+Authorization: Bearer {{admin}}
+
+### USER nie zarządza budynkami -> 403
+POST {{baseUrl}}/buildings
+Authorization: Bearer {{jan}}
+Content-Type: application/json
+
+{
+  "name": "Budynek D",
+  "address": "ul. Kamienna 12, Kraków"
+}
+
+### ADMIN tworzy budynek (201)
+POST {{baseUrl}}/buildings
+Authorization: Bearer {{admin}}
+Content-Type: application/json
+
+{
+  "name": "Budynek D",
+  "address": "ul. Kamienna 12, Kraków"
+}
+
+### Zmiana pojemności sali (ADMIN)
+PATCH {{baseUrl}}/rooms/2
+Authorization: Bearer {{admin}}
+Content-Type: application/json
+
+{
+  "capacity": 24
+}
+
+### Budynek z salami -> 409
+DELETE {{baseUrl}}/buildings/1
+Authorization: Bearer {{admin}}
+
+### Budynek bez sal -> 204
+DELETE {{baseUrl}}/buildings/3
+Authorization: Bearer {{admin}}
+
+### ---------- Zadanie 5: dokumentacja ----------
+
+### Swagger UI (otwórz w przeglądarce)
+GET http://localhost:3000/api/docs/
