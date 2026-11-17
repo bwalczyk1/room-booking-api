@@ -11,7 +11,7 @@ const ALLOWED_TRANSITIONS = {
 
 // Przedziały półotwarte [start, end): A i B nakładają się, gdy A.start < B.end i B.start < A.end
 function overlaps(a, b) {
-  return a.startTime.getTime() < b.endTime.getTime() && b.startTime.getTime() < a.endTime.getTime();
+  return a.startTime.getTime() <= b.endTime.getTime() && b.startTime.getTime() <= a.endTime.getTime();
 }
 
 // Ownership: właściciel albo ADMIN. Decyzja zależy od danych (czyja jest rezerwacja), więc zapada w service
