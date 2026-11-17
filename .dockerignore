@@ -1,0 +1,9 @@
+node_modules
+.env
+.git
+.github
+tests
+coverage
+docker
+sprawozdanie
+*.pdf
