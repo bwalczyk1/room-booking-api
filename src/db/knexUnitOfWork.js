@@ -2,6 +2,7 @@ const { createKnexUsersRepository } = require("../modules/users/users.repository
 const { createKnexBuildingsRepository } = require("../modules/buildings/buildings.repository.knex");
 const { createKnexRoomsRepository } = require("../modules/rooms/rooms.repository.knex");
 const { createKnexReservationsRepository } = require("../modules/reservations/reservations.repository.knex");
+const { createKnexAuditLogRepository } = require("../modules/audit/auditLog.repository.knex");
 
 // db to obiekt knex albo transakcja (trx) - mają to samo API
 function createKnexRepositories(db) {
@@ -9,7 +10,8 @@ function createKnexRepositories(db) {
     users: createKnexUsersRepository(db),
     buildings: createKnexBuildingsRepository(db),
     rooms: createKnexRoomsRepository(db),
-    reservations: createKnexReservationsRepository(db)
+    reservations: createKnexReservationsRepository(db),
+    auditLog: createKnexAuditLogRepository(db)
   };
 }
 

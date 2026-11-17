@@ -17,9 +17,13 @@ const { createRoomsRouter } = require("./modules/rooms/rooms.routes");
 const { createReservationsService } = require("./modules/reservations/reservations.service");
 const { createReservationsController } = require("./modules/reservations/reservations.controller");
 const { createReservationsRouter } = require("./modules/reservations/reservations.routes");
+const { createAuditService } = require("./modules/audit/audit.service");
+const { createAuditController } = require("./modules/audit/audit.controller");
+const { createAuditRouter } = require("./modules/audit/audit.routes");
+const { noopEventBus } = require("./events/eventBus");
 
 // Buduje aplikację z przekazanych zależności, ale jej nie uruchamia
-function createApp({ config, runInTransaction, now }) {
+function createApp({ config, runInTransaction, eventBus = noopEventBus, now }) {
   const app = express();
 
   app.use(requestLogger);
@@ -35,7 +39,8 @@ function createApp({ config, runInTransaction, now }) {
 
   const buildingsService = createBuildingsService({ runInTransaction });
   const roomsService = createRoomsService({ runInTransaction });
-  const reservationsService = createReservationsService({ runInTransaction, now });
+  const reservationsService = createReservationsService({ runInTransaction, eventBus, now });
+  const auditService = createAuditService({ runInTransaction });
 
   // Publiczne: dokumentacja oraz register i login
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapiDocument));
@@ -46,6 +51,7 @@ function createApp({ config, runInTransaction, now }) {
   app.use("/api/buildings", createBuildingsRouter(createBuildingsController(buildingsService)));
   app.use("/api/rooms", createRoomsRouter(createRoomsController(roomsService)));
   app.use("/api/reservations", createReservationsRouter(createReservationsController(reservationsService)));
+  app.use("/api/admin/audit-log", createAuditRouter(createAuditController(auditService)));
 
   app.use(notFound);
   app.use(errorHandler);

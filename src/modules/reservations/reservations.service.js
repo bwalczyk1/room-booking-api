@@ -1,4 +1,5 @@
 const { NotFoundError, ConflictError, ValidationError, ForbiddenError } = require("../../errors/AppError");
+const { noopEventBus } = require("../../events/eventBus");
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -18,7 +19,7 @@ function canAccess(reservation, currentUser) {
   return currentUser.role === "ADMIN" || reservation.userId === currentUser.id;
 }
 
-function createReservationsService({ runInTransaction, now = () => new Date() }) {
+function createReservationsService({ runInTransaction, eventBus = noopEventBus, now = () => new Date() }) {
   function checkTimeRange(startTime, endTime) {
     const details = [];
     const duration = endTime.getTime() - startTime.getTime();
@@ -38,7 +39,7 @@ function createReservationsService({ runInTransaction, now = () => new Date() })
 
   // currentUser = { id, role } z tokenu - service nie zna Expressa ani req
   async function createReservation(input, currentUser) {
-    return runInTransaction(async ({ rooms: roomsRepository, reservations: reservationsRepository }) => {
+    const reservation = await runInTransaction(async ({ rooms: roomsRepository, reservations: reservationsRepository }) => {
       const startTime = new Date(input.startTime);
       const endTime = new Date(input.endTime);
       const details = checkTimeRange(startTime, endTime);
@@ -74,17 +75,34 @@ function createReservationsService({ runInTransaction, now = () => new Date() })
         internalNote: "created via API v2"
       });
     });
+
+    // await runInTransaction kończy się po COMMIT - nieudana operacja rzuca wyjątek i nie dochodzi tutaj
+    eventBus.publish("reservation.created", {
+      reservationId: reservation.id,
+      roomId: reservation.roomId,
+      userId: reservation.userId,
+      startTime: reservation.startTime.toISOString(),
+      endTime: reservation.endTime.toISOString()
+    });
+
+    return reservation;
   }
 
   async function cancelReservation(id, currentUser) {
-    return runInTransaction(async ({ reservations: reservationsRepository }) => {
+    let alreadyCancelled = false;
+
+    const reservation = await runInTransaction(async ({ reservations: reservationsRepository }) => {
       const reservation = await reservationsRepository.findById(id);
 
       // Cudza rezerwacja wygląda dla USER-a tak samo jak nieistniejąca - nie zdradzamy, że istnieje
       if (!reservation || !canAccess(reservation, currentUser)) throw new NotFoundError("Reservation");
 
       // Idempotencja: ponowne anulowanie zwraca rezerwację bez zmian (cancelledAt zostaje)
-      if (reservation.status === "CANCELLED") return reservation;
+      if (reservation.status === "CANCELLED") {
+        alreadyCancelled = true;
+
+        return reservation;
+      }
 
       if (!ALLOWED_TRANSITIONS[reservation.status].includes("CANCELLED")) {
         throw new ConflictError(
@@ -99,6 +117,18 @@ function createReservationsService({ runInTransaction, now = () => new Date() })
 
       return reservationsRepository.update(id, { status: "CANCELLED", cancelledAt: now() });
     });
+
+    // Ponowne anulowanie niczego nie zmienia, więc nie publikuje eventu
+    if (!alreadyCancelled) {
+      eventBus.publish("reservation.cancelled", {
+        reservationId: reservation.id,
+        roomId: reservation.roomId,
+        userId: reservation.userId,
+        cancelledBy: currentUser.id
+      });
+    }
+
+    return reservation;
   }
 
   async function getReservation(id, currentUser) {

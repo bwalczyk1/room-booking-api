@@ -39,7 +39,7 @@ beforeAll(async () => {
 
 // Każdy test zaczyna od tego samego, znanego stanu
 beforeEach(async () => {
-  await db.raw("TRUNCATE reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
+  await db.raw("TRUNCATE audit_log, reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
   await db("buildings").insert({ name: "Budynek A", address: "ul. Testowa 1" });
 
   await db("rooms").insert([
@@ -184,5 +184,41 @@ describe("Rooms API", () => {
 
     expect(res.status).toBe(201);
     expect(await db("rooms").where({ name: "301" }).first()).toMatchObject({ building_id: 1, capacity: 40 });
+  });
+});
+
+describe("Audit log API", () => {
+  async function insertEntries() {
+    await db("audit_log").insert([
+      { event_type: "reservation.created", payload: { reservationId: 1 }, created_at: "2026-11-20T10:00:00Z" },
+      { event_type: "reservation.created", payload: { reservationId: 2 }, created_at: "2026-11-20T11:00:00Z" },
+      { event_type: "reservation.cancelled", payload: { reservationId: 1 }, created_at: "2026-11-20T12:00:00Z" }
+    ]);
+  }
+
+  test("403 for a USER", async () => {
+    const token = await registerAndLogin("jan@example.com");
+
+    const res = await request(app).get("/api/admin/audit-log").set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("FORBIDDEN");
+  });
+
+  test("ADMIN gets entries newest first, filtered by eventType and paginated", async () => {
+    await insertEntries();
+
+    const token = await login("admin@example.com");
+
+    const res = await request(app)
+      .get("/api/admin/audit-log?eventType=reservation.created&limit=1")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body.meta).toEqual({ page: 1, limit: 1, total: 2, totalPages: 2 });
+
+    expect(res.body.data).toEqual([
+      { id: 2, eventType: "reservation.created", payload: { reservationId: 2 }, createdAt: "2026-11-20T11:00:00.000Z" }
+    ]);
   });
 });

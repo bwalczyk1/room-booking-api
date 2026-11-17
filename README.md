@@ -53,5 +53,6 @@ npm run test:integration  # Supertest + PostgreSQL
 | `GET`, `POST` | `/api/reservations` | zalogowany (`USER` widzi tylko swoje) |
 | `GET` | `/api/reservations/:id` | właściciel albo `ADMIN` |
 | `PATCH` | `/api/reservations/:id/cancel` | właściciel albo `ADMIN` |
+| `GET` | `/api/admin/audit-log` | `ADMIN` (filtr `?eventType=`, paginacja) |
 
 Pełny opis z przykładami jest w Swagger UI.

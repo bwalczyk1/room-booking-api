@@ -27,12 +27,12 @@ module.exports = {
   openapi: "3.0.3",
   info: {
     title: "Room Booking API",
-    version: "4.0.0",
+    version: "5.0.0",
     description: "Rezerwacje sal. Zaloguj się (POST /api/auth/login), kliknij Authorize i wklej accessToken."
   },
   // Domyślnie każdy endpoint wymaga tokenu; register i login nadpisują to pustym security
   security: [{ bearerAuth: [] }],
-  tags: [{ name: "Auth" }, { name: "Buildings" }, { name: "Rooms" }, { name: "Reservations" }],
+  tags: [{ name: "Auth" }, { name: "Buildings" }, { name: "Rooms" }, { name: "Reservations" }, { name: "Audit log" }],
   components: {
     securitySchemes: {
       bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }
@@ -207,6 +207,26 @@ module.exports = {
               totalPages: { type: "integer" }
             }
           }
+        }
+      },
+      AuditLogEntry: {
+        type: "object",
+        properties: {
+          id: { type: "integer", example: 3 },
+          eventType: { type: "string", enum: ["reservation.created", "reservation.cancelled"] },
+          payload: {
+            type: "object",
+            description: "Event data - fields depend on eventType",
+            example: { reservationId: 6, roomId: 1, userId: 2, cancelledBy: 1 }
+          },
+          createdAt: timestamp
+        }
+      },
+      AuditLogPage: {
+        type: "object",
+        properties: {
+          data: { type: "array", items: ref("AuditLogEntry") },
+          meta: { $ref: "#/components/schemas/ReservationPage/properties/meta" }
         }
       }
     }
@@ -450,6 +470,23 @@ module.exports = {
           401: unauthorized,
           404: error("Reservation not found - also when it belongs to another USER"),
           409: error("Reservation has already started (RESERVATION_ALREADY_STARTED)")
+        }
+      }
+    },
+    "/api/admin/audit-log": {
+      get: {
+        tags: ["Audit log"],
+        summary: "Reservation events, newest first (ADMIN)",
+        parameters: [
+          queryParam("eventType", { type: "string", enum: ["reservation.created", "reservation.cancelled"] }),
+          queryParam("page", { type: "integer", minimum: 1, default: 1 }),
+          queryParam("limit", { type: "integer", minimum: 1, maximum: 100, default: 20 })
+        ],
+        responses: {
+          200: response("Page of audit log entries with meta", "AuditLogPage"),
+          400: error("Invalid query parameter"),
+          401: unauthorized,
+          403: adminOnly
         }
       }
     }

@@ -13,7 +13,7 @@ const USERS = [
 
 // Seedy uruchamiają się alfabetycznie - ten jest pierwszy, więc tylko on czyści tabele (CASCADE obejmuje zależne)
 exports.seed = async function (knex) {
-  await knex.raw("TRUNCATE reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
+  await knex.raw("TRUNCATE audit_log, reservations, rooms, buildings, users RESTART IDENTITY CASCADE");
 
   for (const { email, password, role } of USERS) {
     await knex("users").insert({ email, password_hash: await bcrypt.hash(password, BCRYPT_ROUNDS), role });

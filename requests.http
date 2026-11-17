@@ -210,3 +210,17 @@ Authorization: Bearer {{admin}}
 
 ### Swagger UI (otwórz w przeglądarce)
 GET http://localhost:3000/api/docs/
+
+### ---------- Audit log (eventy rezerwacji) ----------
+
+### Wszystkie wpisy, od najnowszych (ADMIN)
+GET {{baseUrl}}/admin/audit-log
+Authorization: Bearer {{admin}}
+
+### Tylko anulowania, 1 wpis na stronę
+GET {{baseUrl}}/admin/audit-log?eventType=reservation.cancelled&limit=1
+Authorization: Bearer {{admin}}
+
+### USER -> 403
+GET {{baseUrl}}/admin/audit-log
+Authorization: Bearer {{anna}}
