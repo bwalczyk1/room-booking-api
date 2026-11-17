@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:17
-    container_name: roombooking04-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -9,7 +8,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - roombooking04-pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
 
 volumes:
-  roombooking04-pgdata:
+  pgdata:
